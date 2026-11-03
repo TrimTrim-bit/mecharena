@@ -1,40 +1,85 @@
-# Base44 App — TanStack Start
+# MECH ARENA
 
-A full-stack Base44 app: [TanStack Start](https://tanstack.com/start) (React 19, plain JavaScript) with file-based routes, server functions and server routes, server-rendered and hosted by Base44.
+A browser-based mech combat game. The playable game, pilot progression, shop,
+loadouts, seasons, and records run client-side; no account or game backend is
+required.
 
-## What is in the starter
+## Run on Windows
 
-| Route | File |
-| --- | --- |
-| `/` | `src/routes/index.jsx` — a server-rendered page whose loader calls a server function |
-| `GET /api/time` | `src/routes/api/time.js` — a server route: a raw HTTP endpoint next to the pages |
+1. Install Node.js if it is not already installed.
+2. Double-click `start.bat`.
+3. Keep the MECH ARENA Server window open while playing.
 
-## Run locally
+The first launch installs the JavaScript packages. That setup needs an internet
+connection once. Later launches use the installed packages.
+
+## Upload to a static website host
+
+The project source folder is for editing; do not upload the whole folder.
+To create the small static website bundle:
 
 ```bash
 npm ci
-base44 login   # one-time per machine
-base44 link    # one-time per clone
-base44 dev     # local backend + app together
+npm run build
 ```
 
-## Build and publish
+Upload the **contents of `dist/`** to the static host. Do not upload
+`node_modules/` or the project source. The build output contains
+the HTML page, styles, and browser game scripts and does not need Node.js or a
+game server on the host. Hash-based routes support static hosts that do not
+provide server-side route fallback.
 
-```bash
-npm run build         # -> dist/client (assets) + dist/server (the Worker)
-base44 deploy         # or publish from the Base44 builder
-```
+`npm run preview` lets you check the production build locally before uploading.
+Run `npm run test:arena` for the deterministic offline team-combat and
+Search & Destroy objective-clock checks.
 
-There is no `index.html`: the HTML document is rendered on the server from `src/routes/__root.jsx`. The build runs through the [Cloudflare Vite plugin](https://developers.cloudflare.com/workers/vite-plugin/), so dev and build both execute server code in `workerd`.
+## Saves and private online PvP
 
-## How the pieces fit
+Pilot progress is stored in the browser's local storage. It stays in that
+browser and does not sync to another device. Private PvP parties support up to
+four pilots using a six-character invite code. Multiplayer runs through a
+Cloudflare Worker and Durable Objects; the game website can still be hosted as
+static files.
 
-- **Pages** are files in `src/routes/`. A route's `loader` runs on the server for a document request and in the browser for a client navigation; `Route.useLoaderData()` gives the component the resolved data.
-- **Server functions** (`src/lib/server-fns.js`) are RPCs created with `createServerFn`. `src/start.js` runs every one of them through `authMiddleware`, which sends the visitor's token along, so `context.getBase44()` returns a client acting as that visitor and entity access rules apply. `context.getBase44().asServiceRole` bypasses them, so use it only after authenticating the caller (`.middleware([requireUser])`) and checking they may access the records involved: server functions and server routes are public endpoints anyone can call with any input. See **Server Security** in `AGENTS.md`. Call it only in handlers that need Base44: it reads the platform headers, and a handler that never calls it works without them.
-- **Secrets** are read in server code with `import { secrets } from "base44:runtime"` → `secrets.get("NAME")`, inside a handler. Never `process.env`.
-- **Server routes** (`src/routes/api/*.js`) are raw HTTP endpoints for URLs something other than the app's own code requests (webhooks, downloads, feeds); the app's pages call server functions. `src/start.js` runs every request through `base44RequestMiddleware`, so their `server.handlers` receive the same `context.getBase44()` (`({ request, params, context }) => …`).
-- **Server-only code** lives in `*.server.js` files (TanStack refuses to bundle them for the browser).
-- **Auth** is resolved client-side after hydration (`useAuth()`); the server is anonymous on a document request, so give per-user pages `ssr: false`.
-- **Sign-in and gated pages** are not wired in the starter: `src/components/auth/` holds the pages (login, register, password reset, MCP consent) and a login gate for `src/routes/_authed/`, to add when the app needs them. See **Adding Authentication** in `AGENTS.md`.
-- **AI**: TanStack AI is installed and runs on the Base44 AI gateway, with no API key and usage billed to the app's AI credits. `gatewayModel(context.getBase44())` in `src/lib/ai.server.js` builds the adapter; `AGENTS.md` has a streaming chat example (a server route plus `useChat`).
-- **Caching**: the platform caches only what a route opts into via `headers()` (`Cache-Control: public, s-maxage=…`). Everything else is served fresh.
+### Run the party service locally
+
+1. Start the room server with `npm run multiplayer:dev`.
+2. In a second terminal, set `VITE_MULTIPLAYER_URL=http://127.0.0.1:8787` in
+   `.env.local` and run `npm run dev`.
+3. Open the game in two browser windows, create a party, and join with its code.
+
+### Deploy online rooms
+
+Cloudflare's Workers Free plan currently includes Durable Objects with SQLite,
+subject to daily quotas and service limits. Create a Cloudflare account, run
+`npx wrangler login`, then deploy with `npm run multiplayer:deploy`. The deploy
+command prints the Worker URL. Set
+`VITE_MULTIPLAYER_URL=https://YOUR-WORKER.workers.dev` in `.env.production`,
+run `npm run build`, and upload the new `dist/` contents to the static host.
+The multiplayer URL is public configuration, not a secret.
+
+Free-tier availability and quotas can change; check
+[Cloudflare Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
+before publishing. Rooms are temporary, do not require accounts, and are
+deleted after the party has been empty for 30 minutes. The first online mode is
+private free-for-all PvP; online results do not award pilot progression yet,
+and offline modes remain unchanged.
+
+## Gameplay features
+
+- Team Deathmatch and Search & Destroy join the offline AI battle rotation,
+  alongside Free-For-All, survival and class-specific operations.
+- Four new original urban districts—Copperline Exchange, Lantern Ward,
+  Glassreach and Helix Yard—feature distinct street plans and building
+  silhouettes. The battlefield footprint is expanded across every map.
+- Team Deathmatch deploys allied AI squadmates against a larger hostile squad.
+  Search & Destroy uses two marked bomb sites: hold E (or the labeled touch
+  control) to plant, then defend the charge until detonation.
+- Battlefields are randomly assigned for each sortie. Team Deathmatch and
+  Search & Destroy prefer their map-tagged district pool; maps are not
+  player-selectable.
+- Mech and weapon customization, rarity-scaled equipment, shop unlocks, and a
+  connected skill network.
+- Daily contracts, weekly featured operations, and a 28-day season track.
+- Permanent achievements and per-mode personal records.
+- Temporary combat powerups dropped by defeated enemies.
